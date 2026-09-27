@@ -1,13 +1,14 @@
-import "dotenv/config"; 
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 
 import fs from "node:fs"
 import path from "node:path"
 
-import {clerkMiddleware} from "@clerk/express";
+import { clerkMiddleware } from "@clerk/express";
 import { clerkWebhookHandler } from "./webhooks/clerk";
 import { getEnv } from "./lib/env";
+import keepAliveCron from "./lib/cron";
 
 const env = getEnv();
 const app = express();
@@ -23,12 +24,16 @@ app.use(express.json());
 app.use(cors());
 app.use(clerkMiddleware());
 
-const publicDir = path.join(process.cwd(),"public")
-if(fs.existsSync(publicDir)){
+app.get("/health", (_req, res) => {
+  res.json({ ok: true });
+})
+
+const publicDir = path.join(process.cwd(), "public")
+if (fs.existsSync(publicDir)) {
   app.use(express.static(publicDir));
 
-  app.get("/{*any}", (req,res,next) => {
-    if(req.method !== "GET" && req.method !== "HEAD"){
+  app.get("/{*any}", (req, res, next) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
       next();
       return;
     }
@@ -45,4 +50,7 @@ if(fs.existsSync(publicDir)){
 
 app.listen(env.PORT, () => {
   console.log(`Server is running on port ${env.PORT}`);
+  if (env.NODE_ENV === "production") {
+    keepAliveCron.start()
+  }
 });
